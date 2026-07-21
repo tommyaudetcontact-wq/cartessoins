@@ -66,9 +66,7 @@
 
         .pokemon-card-img { width: 100%; height: 100%; object-fit: fill; border-radius: 10px; transition: opacity 0.3s ease; }
         
-        /* ========================================================
-           DOM FOLDING 3D
-           ======================================================== */
+        /* DOM FOLDING 3D */
         .card-fold-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 30; pointer-events: none; perspective: 1200px; border-radius: 10px; overflow: hidden;
@@ -153,7 +151,6 @@
         }
         .food-emoji { font-size: 2.5rem; display: block; }
         
-        /* OVERLAY POMME PLEINE LARGEUR CENTRÉE */
         .interactive-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(5, 0, 15, 0.95); z-index: 5000;
@@ -185,7 +182,10 @@
     <div class="container py-3">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="brawl-font text-warning mb-0">🧼 CENTRE DE SOIN</h1>
-            <button onclick="window.location.href='https://tommyaudetcontact-wq.github.io/brawlTasks2.0/'" class="btn brawl-btn btn-pink px-4">⬅ RETOUR</button>
+            <div class="d-flex gap-2">
+                <button onclick="handleLogout()" class="btn brawl-btn btn-pink px-3">🚪 DÉCONNEXION</button>
+                <button onclick="window.location.href='https://tommyaudetcontact-wq.github.io/brawlTasks2.0/'" class="btn brawl-btn btn-pink px-4">⬅ RETOUR</button>
+            </div>
         </div>
 
         <div id="loginSection" class="brawl-card p-4 mx-auto text-center" style="max-width: 450px;">
@@ -262,7 +262,6 @@
         </div>
     </div>
 
-    <!-- OVERLAY POMME PLEINE LARGEUR AVEC TROUS AU TOUCHER -->
     <div id="appleEatingOverlay" class="interactive-overlay d-none">
         <h1 class="brawl-font text-warning mb-2" style="font-size: 2.2rem;">CROQUE LA POMME !</h1>
         <h3 class="brawl-font text-white mb-4" id="txtBitesLeft" style="font-size: 1.3rem;">MANGÉ : 0%</h3>
@@ -298,9 +297,24 @@
             fetch(`${API_URL}?action=getMembres`).then(res => res.json()).then(membres => {
                 const s = document.getElementById('userSelect'); s.innerHTML = '<option value="">-- Qui es-tu ? --</option>';
                 membres.filter(m => m.Nom !== 'Admin').forEach(m => s.innerHTML += `<option value="${m.Nom}">${m.Nom}</option>`);
+
+                // AUTO-CONNEXION DEPUIS LE LOCALSTORAGE
+                const savedUser = localStorage.getItem('brawlUser');
+                if (savedUser) {
+                    currentUser = savedUser;
+                    document.getElementById('loginSection').classList.add('d-none');
+                    document.getElementById('mainSoinSection').classList.remove('d-none');
+                    chargerCollectionSoin();
+                }
             });
             setupDragAndDropHTML5();
         });
+
+        function handleLogout() {
+            localStorage.removeItem('brawlUser');
+            localStorage.removeItem('brawlRole');
+            window.location.href = "https://tommyaudetcontact-wq.github.io/brawlTasks2.0/";
+        }
 
         function triggerBrawlNotification(msg, colorClass = "text-white") {
             const banner = document.getElementById('brawlTurnBanner');
@@ -313,6 +327,7 @@
 
         function connexionSoin() {
             currentUser = document.getElementById('userSelect').value; if(!currentUser) return;
+            localStorage.setItem('brawlUser', currentUser);
             document.getElementById('loginSection').classList.add('d-none');
             document.getElementById('mainSoinSection').classList.remove('d-none');
             chargerCollectionSoin();
@@ -643,7 +658,6 @@
         function startCleaning(e) { isDrawing = true; cleanMove(e); afficherOutil(true); }
         function stopCleaning() { isDrawing = false; verifierProgressionLavage(); }
 
-        /* NETTOYAGE ACCÉLÉRÉ : RAYON D'EFFAÇAGE À 80PX (PLUS FACILE ET RAPIDE) */
         function cleanMove(e) {
             let ep = document.getElementById('toolEponge');
             ep.style.left = e.clientX + 'px'; ep.style.top = e.clientY + 'px';
@@ -662,7 +676,7 @@
             } else {
                 ctx.globalCompositeOperation = 'destination-out';
                 ctx.beginPath(); 
-                ctx.arc(x, y, 80, 0, Math.PI * 2); // RAYON D'EFFAÇAGE DOUBLÉ (80px)
+                ctx.arc(x, y, 80, 0, Math.PI * 2);
                 ctx.fill();
                 
                 let now = performance.now();
@@ -673,7 +687,6 @@
             }
         }
 
-        /* SEUIL DE RINÇAGE ASSOUPLI À 70% POUR PLUS DE FACILITÉ */
         function verifierProgressionLavage() {
             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             let countMousse = 0, countVide = 0, totalEchantillons = 0;
@@ -688,7 +701,7 @@
                 isDrawing = false; afficherOutil(false);
                 lancerEtapeNettoyage('rincage');
             } 
-            else if (nettoyageMode === 'rincage' && (countVide / totalEchantillons) > 0.70) { // SEUIL ASSOUPLI À 70%
+            else if (nettoyageMode === 'rincage' && (countVide / totalEchantillons) > 0.70) {
                 desactiverCanvas();
                 selectedCard.Proprete = 100;
                 selectedCard.Energie = 100;
