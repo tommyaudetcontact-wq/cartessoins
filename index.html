@@ -153,18 +153,19 @@
         }
         .food-emoji { font-size: 2.5rem; display: block; }
         
+        /* OVERLAY POMME PLEINE LARGEUR CENTRÉE */
         .interactive-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(5, 0, 15, 0.92); z-index: 5000;
+            background: rgba(5, 0, 15, 0.95); z-index: 5000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 10px;
         }
         .big-apple-container {
             cursor: pointer; user-select: none;
             display: flex; align-items: center; justify-content: center;
-            touch-action: none;
-            transition: transform 0.1s ease;
+            touch-action: none; width: 92vw; max-width: 420px;
         }
-        .big-apple-container:active { transform: scale(0.92); }
+        .big-apple-container:active { transform: scale(0.98); }
 
         .fx-bite-particle { position: fixed; font-size: 1.5rem; pointer-events: none; z-index: 99999; animation: particleFly 0.5s ease-out forwards; }
         @keyframes particleFly {
@@ -202,7 +203,7 @@
             </div>
 
             <div class="col-md-6">
-                <div class="brawl-card p-4 text-center sticky-top" style="top: 20px;">
+                <div class="brawl-card p-4 text-center sticky-top" id="careZoneCard" style="top: 20px;">
                     <h3 class="brawl-font text-warning mb-3" id="activeCardName">AUCUNE SÉLECTION</h3>
                     
                     <div class="row align-items-center justify-content-center">
@@ -261,24 +262,16 @@
         </div>
     </div>
 
-    <!-- OVERLAY POMME CENTRÉE AVEC BOUCHÉES VISUELLES -->
+    <!-- OVERLAY POMME PLEINE LARGEUR AVEC TROUS AU TOUCHER -->
     <div id="appleEatingOverlay" class="interactive-overlay d-none">
         <h1 class="brawl-font text-warning mb-2" style="font-size: 2.2rem;">CROQUE LA POMME !</h1>
-        <h3 class="brawl-font text-white mb-4" id="txtBitesLeft" style="font-size: 1.3rem;">BOUCHÉES RESTANTES : ?</h3>
+        <h3 class="brawl-font text-white mb-4" id="txtBitesLeft" style="font-size: 1.3rem;">MANGÉ : 0%</h3>
         
-        <div class="big-apple-container" id="clickableApple" onmousedown="tapotePomme(event)" ontouchstart="tapotePomme(event)">
-            <svg viewBox="0 0 100 100" style="width: 170px; height: 170px; filter: drop-shadow(0 12px 20px rgba(0,0,0,0.8));">
+        <div class="big-apple-container" id="clickableApple" onclick="croquerPomme(event)" ontouchstart="croquerPomme(event)">
+            <svg id="appleSvg" viewBox="0 0 100 100" style="width: 92vw; max-width: 420px; height: auto; filter: drop-shadow(0 12px 20px rgba(0,0,0,0.8));">
                 <defs>
                     <mask id="appleMask">
                         <rect x="0" y="0" width="100" height="100" fill="white" />
-                        <circle id="bite0" cx="16" cy="48" r="0" fill="black" />
-                        <circle id="bite1" cx="84" cy="52" r="0" fill="black" />
-                        <circle id="bite2" cx="50" cy="86" r="0" fill="black" />
-                        <circle id="bite3" cx="78" cy="24" r="0" fill="black" />
-                        <circle id="bite4" cx="24" cy="72" r="0" fill="black" />
-                        <circle id="bite5" cx="74" cy="72" r="0" fill="black" />
-                        <circle id="bite6" cx="26" cy="26" r="0" fill="black" />
-                        <circle id="bite7" cx="50" cy="45" r="0" fill="black" />
                     </mask>
                 </defs>
                 <path d="M50,20 Q64,6 72,13 Q60,22 50,20 Z" fill="#27ae60" />
@@ -293,7 +286,8 @@
         const API_URL = "https://script.google.com/macros/s/AKfycbzKgKRkfVyQuNCrc0T13iH1orPFeWIZAK4kB_emnRFimN-ae_HzISIqUzZ_g1aWgPwHjg/exec";
         let currentUser = null, myCollection = [], selectedCard = null, selectedCardIndex = null;
         let canvas, ctx, isDrawing = false, nettoyageMode = 'savon';
-        let hitsRequired = 3, currentBites = 0, lastParticleTime = 0;
+        let totalBitesCount = 0;
+        const targetBitesFor85Percent = 10;
 
         let estDepliee = false;
         let pullTabDraggableInstance = null;
@@ -328,17 +322,34 @@
             fetch(`${API_URL}?action=getCollection`).then(res => res.json()).then(cards => {
                 myCollection = cards.filter(c => (c.Nom_Joueur || "").toLowerCase() === currentUser.toLowerCase());
                 const grid = document.getElementById('cardsGrid'); grid.innerHTML = "";
+                
                 myCollection.forEach((c, i) => {
-                    let isMalEnPoint = (parseInt(c.Energie)||0) < 30 || (parseInt(c.Proprete)||0) < 30;
+                    let nrg = (c.Energie !== undefined && c.Energie !== "") ? parseInt(c.Energie) : 100;
+                    let cln = (c.Proprete !== undefined && c.Proprete !== "") ? parseInt(c.Proprete) : 100;
+                    
+                    let isMalEnPoint = nrg < 30 || cln < 30;
                     let alerteStyleClass = isMalEnPoint ? 'mal-en-point' : '';
                     let selectedClass = (selectedCardIndex === i) ? 'selected-team-card' : '';
                     
+                    let condTxt = "EXCELLENT 🟢";
+                    let condColor = "#10D010";
+                    if (nrg < 30 || cln < 30) { condTxt = "MAUVAIS ⚠️"; condColor = "#FF007F"; }
+                    else if (nrg < 60 || cln < 60) { condTxt = "MOYEN ⏳"; condColor = "#FFF200"; }
+
                     grid.innerHTML += `
                         <div class="col" style="padding: 5px;">
                             <div class="pokemon-card-wrapper ${alerteStyleClass} ${selectedClass}" data-card-idx="${i}" onclick="selectCardSoin(${i}, this)">
                                 <img src="${c.Image_URL || c.Image}" class="pokemon-card-img">
                             </div>
-                            <div class="text-center small fw-bold mt-1">NV.${c.Carte_Niveau || 1} ${isMalEnPoint ? '⚠️' : ''}</div>
+                            <div class="text-center small fw-bold mt-1" style="font-size:0.8rem;">
+                                NV.${c.Carte_Niveau || 1}
+                            </div>
+                            <div class="text-center fw-bold small" style="color: ${condColor}; font-size:0.75rem;">
+                                ${condTxt}
+                            </div>
+                            <div class="text-center text-light" style="font-size:0.7rem;">
+                                ⚡ ${nrg}% | 🧼 ${cln}%
+                            </div>
                         </div>`;
                 });
             });
@@ -381,6 +392,11 @@
             }
 
             refreshStatsVisuals();
+
+            const carePanel = document.getElementById('careZoneCard');
+            if (carePanel) {
+                carePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
 
         function lancerPliageInteractif3D() {
@@ -503,61 +519,70 @@
             });
         }
 
-        /* GESTION DE LA POMME ET MISE À JOUR DU SHEET */
         function ouvrirGigaPommeOverlay() {
             if(parseInt(selectedCard.Energie) >= 100) {
-                triggerBrawlNotification("ÉNERGIE MAX DEJA ATTEINTE !", "text-warning");
+                triggerBrawlNotification("ÉNERGIE MAX DÉJÀ ATTEINTE !", "text-warning");
                 return;
             }
             
-            hitsRequired = Math.floor(Math.random() * 6) + 3;
-            currentBites = 0;
-            
-            for (let i = 0; i < 8; i++) {
-                let biteCircle = document.getElementById('bite' + i);
-                if (biteCircle) biteCircle.setAttribute('r', '0');
-            }
+            totalBitesCount = 0;
+            const mask = document.getElementById('appleMask');
+            const existingCircles = mask.querySelectorAll('circle.dynamic-bite');
+            existingCircles.forEach(c => c.remove());
 
-            document.getElementById('txtBitesLeft').innerText = `BOUCHÉES RESTANTES : ${hitsRequired}`;
+            document.getElementById('txtBitesLeft').innerText = `MANGÉ : 0%`;
             document.getElementById('appleEatingOverlay').classList.remove('d-none');
         }
 
-        function tapotePomme(e) {
+        function croquerPomme(e) {
             e.preventDefault();
-            if (currentBites >= hitsRequired) return;
-
-            currentBites++;
-            let restants = hitsRequired - currentBites;
-            document.getElementById('txtBitesLeft').innerText = `BOUCHÉES RESTANTES : ${restants}`;
-
-            let biteIndex = currentBites - 1;
-            if (biteIndex < 8) {
-                let biteCircle = document.getElementById('bite' + biteIndex);
-                if (biteCircle) {
-                    gsap.to(biteCircle, { attr: { r: 16 }, duration: 0.3, ease: "back.out(1.7)" });
-                }
-            }
-
-            const appleContainer = document.getElementById('clickableApple');
-            gsap.fromTo(appleContainer, { scale: 1.18 }, { scale: 1, duration: 0.25, ease: "back.out(2)" });
-
+            
+            const svg = document.getElementById('appleSvg');
+            const pt = svg.createSVGPoint();
+            
             let clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : window.innerWidth / 2);
             let clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : window.innerHeight / 2);
-            genererParticulesOptimisees(clientX, clientY, ['🟢', '✨', '🍏', '🍎']);
+            
+            pt.x = clientX;
+            pt.y = clientY;
+            const svgPoint = pt.matrixTransform(svg.getScreenCTM().inverse());
 
-            if (currentBites >= hitsRequired) {
-                setTimeout(() => {
-                    document.getElementById('appleEatingOverlay').classList.add('d-none');
-                    triggerBrawlNotification("MIAM ! ÉNERGIE RESTAURÉE À 100% !", "text-success");
-                    
-                    // MISE À JOUR DANS LE GOOGLE SHEET VIA L'API APPS SCRIPT
-                    fetch(`${API_URL}?action=nourrirCarteLocal&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
-                    .then(res => res.json()).then(res => {
-                        selectedCard.Energie = 100;
-                        refreshStatsVisuals(); 
-                        chargerCollectionSoin(); 
-                    });
-                }, 400);
+            if (svgPoint.x >= 10 && svgPoint.x <= 90 && svgPoint.y >= 10 && svgPoint.y <= 95) {
+                totalBitesCount++;
+
+                const mask = document.getElementById('appleMask');
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', svgPoint.x);
+                circle.setAttribute('cy', svgPoint.y);
+                circle.setAttribute('r', '0');
+                circle.setAttribute('class', 'dynamic-bite');
+                circle.setAttribute('fill', 'black');
+                mask.appendChild(circle);
+
+                gsap.to(circle, { attr: { r: 18 }, duration: 0.25, ease: "back.out(1.7)" });
+
+                const appleContainer = document.getElementById('clickableApple');
+                gsap.fromTo(appleContainer, { scale: 1.04 }, { scale: 1, duration: 0.18, ease: "back.out(2)" });
+
+                let progressPercent = Math.min(100, Math.round((totalBitesCount / targetBitesFor85Percent) * 85));
+                document.getElementById('txtBitesLeft').innerText = `MANGÉ : ${progressPercent}%`;
+
+                genererParticulesOptimisees(clientX, clientY, ['🟢', '✨', '🍏', '🍎']);
+
+                if (progressPercent >= 85) {
+                    setTimeout(() => {
+                        document.getElementById('appleEatingOverlay').classList.add('d-none');
+                        triggerBrawlNotification("MIAM ! ÉNERGIE RESTAURÉE À 100% !", "text-success");
+                        
+                        fetch(`${API_URL}?action=soignerCarteComplete&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
+                        .then(res => res.json())
+                        .then(() => {
+                            selectedCard.Energie = 100;
+                            refreshStatsVisuals(); 
+                            chargerCollectionSoin(); 
+                        });
+                    }, 400);
+                }
             }
         }
 
@@ -618,6 +643,7 @@
         function startCleaning(e) { isDrawing = true; cleanMove(e); afficherOutil(true); }
         function stopCleaning() { isDrawing = false; verifierProgressionLavage(); }
 
+        /* NETTOYAGE ACCÉLÉRÉ : RAYON D'EFFAÇAGE À 80PX (PLUS FACILE ET RAPIDE) */
         function cleanMove(e) {
             let ep = document.getElementById('toolEponge');
             ep.style.left = e.clientX + 'px'; ep.style.top = e.clientY + 'px';
@@ -629,13 +655,15 @@
             
             if(nettoyageMode === 'savon') {
                 ctx.globalCompositeOperation = 'source-over';
-                let br = 24;
+                let br = 28;
                 let gradB = ctx.createRadialGradient(x - 5, y - 5, 2, x, y, br);
                 gradB.addColorStop(0, '#ffffff'); gradB.addColorStop(0.3, 'rgba(240, 250, 255, 0.9)'); gradB.addColorStop(1, 'rgba(215, 235, 255, 0.7)');
                 ctx.fillStyle = gradB; ctx.beginPath(); ctx.arc(x, y, br, 0, Math.PI * 2); ctx.fill();
             } else {
                 ctx.globalCompositeOperation = 'destination-out';
-                ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); 
+                ctx.arc(x, y, 80, 0, Math.PI * 2); // RAYON D'EFFAÇAGE DOUBLÉ (80px)
+                ctx.fill();
                 
                 let now = performance.now();
                 if (now - lastParticleTime > 45) { 
@@ -645,7 +673,8 @@
             }
         }
 
-function verifierProgressionLavage() {
+        /* SEUIL DE RINÇAGE ASSOUPLI À 70% POUR PLUS DE FACILITÉ */
+        function verifierProgressionLavage() {
             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             let countMousse = 0, countVide = 0, totalEchantillons = 0;
 
@@ -659,13 +688,12 @@ function verifierProgressionLavage() {
                 isDrawing = false; afficherOutil(false);
                 lancerEtapeNettoyage('rincage');
             } 
-            else if (nettoyageMode === 'rincage' && (countVide / totalEchantillons) > 0.82) {
+            else if (nettoyageMode === 'rincage' && (countVide / totalEchantillons) > 0.70) { // SEUIL ASSOUPLI À 70%
                 desactiverCanvas();
                 selectedCard.Proprete = 100;
-                selectedCard.Energie = 100; // Remet aussi l'énergie à 100% visuellement
+                selectedCard.Energie = 100;
                 refreshStatsVisuals();
                 
-                // APPEL UNIQUE AU SHEET POUR METTRE LES DEUX STATS À 100%
                 fetch(`${API_URL}?action=soignerCarteComplete&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
                 .then(res => res.json())
                 .then(() => {
@@ -675,6 +703,7 @@ function verifierProgressionLavage() {
                 });
             }
         }
+
         function desactiverCanvas() {
             canvas = document.getElementById('cleaningCanvas');
             canvas.classList.add('d-none');
