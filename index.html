@@ -8,11 +8,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    
+    <!-- CDN GSAP ET DRAGGABLE -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Draggable.min.js"></script>
+
     <style>
         :root { 
             --brawl-yellow: #FFF200; --brawl-blue: #00A6FF; --brawl-orange: #FF5500; 
             --brawl-green: #10D010; --brawl-pink: #FF007F;
         }
+
         body { 
             font-family: 'Montserrat', sans-serif; 
             background: radial-gradient(circle, #1a0033 0%, #050010 100%); 
@@ -33,32 +39,24 @@
         
         .brawl-card { background: #25084a; border: 4px solid #000; border-radius: 20px; box-shadow: 0px 8px 0px #000; }
         
-        /* Cadre carte de base */
         .pokemon-card-wrapper { 
             background: #111; padding: 4px; border: 4px solid #000; border-radius: 14px; 
             width: 100%; aspect-ratio: 5/7; display: inline-block; position: relative; 
-            overflow: hidden; cursor: pointer; transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: visible; cursor: pointer; transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            perspective: 1200px;
         }
         .pokemon-card-wrapper.drag-over { border-color: var(--brawl-green) !important; box-shadow: 0 0 25px var(--brawl-green); transform: scale(1.02); }
         
-        /* CARTE SÉLECTIONNÉE */
         .pokemon-card-wrapper.selected-team-card { 
             border-color: var(--brawl-yellow) !important; 
             box-shadow: 0 0 20px var(--brawl-yellow), 0 0 35px var(--brawl-yellow);
-            transform: scale(1.08);
-            z-index: 5;
+            transform: scale(1.08); z-index: 5;
         }
         
-        /* CONTOUR ROUGE CARTE MAL EN POINT */
         .pokemon-card-wrapper.mal-en-point { 
             border-color: var(--brawl-pink) !important; 
             box-shadow: 0 0 15px var(--brawl-pink), inset 0 0 10px rgba(255, 0, 127, 0.5);
             animation: pulseAlerte 1.5s infinite alternate;
-        }
-        .pokemon-card-wrapper.mal-en-point.selected-team-card {
-            border-color: var(--brawl-yellow) !important;
-            box-shadow: 0 0 25px var(--brawl-yellow), 0 0 15px var(--brawl-pink);
-            transform: scale(1.08);
         }
 
         @keyframes pulseAlerte {
@@ -66,8 +64,69 @@
             100% { box-shadow: 0 0 18px var(--brawl-pink); }
         }
 
-        .pokemon-card-img { width: 100%; height: 100%; object-fit: fill; border-radius: 10px; }
+        .pokemon-card-img { width: 100%; height: 100%; object-fit: fill; border-radius: 10px; transition: opacity 0.3s ease; }
         
+        /* ========================================================
+           DOM FOLDING 3D
+           ======================================================== */
+        .card-fold-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 30; pointer-events: none; perspective: 1200px; border-radius: 10px; overflow: hidden;
+        }
+
+        .fold-bottom-half {
+            position: absolute; top: 50%; left: 0; width: 100%; height: 50%;
+            overflow: hidden; pointer-events: none; background: #111;
+        }
+        .fold-bottom-half img {
+            position: absolute; top: -100%; left: 0; width: 100%; height: 200%; object-fit: fill;
+        }
+
+        .fold-top-half {
+            position: absolute; top: 0; left: 0; width: 100%; height: 50%;
+            transform-origin: 50% 100%;
+            transform-style: preserve-3d;
+            will-change: transform; pointer-events: none;
+        }
+
+        .fold-face {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            backface-visibility: hidden; overflow: hidden; pointer-events: none;
+        }
+
+        .fold-face-front img {
+            position: absolute; top: 0; left: 0; width: 100%; height: 200%; object-fit: fill;
+        }
+
+        .fold-face-back {
+            transform: rotateX(180deg);
+            background: linear-gradient(135deg, #25084a 0%, #0d011c 100%);
+            border: 3px solid var(--brawl-yellow);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.9); pointer-events: none;
+        }
+
+        .fold-shadow {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; pointer-events: none; opacity: 0;
+        }
+
+        #dragPullTab {
+            position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+            background: var(--brawl-yellow); color: #000; font-family: 'Luckiest Guy', cursive;
+            padding: 8px 18px; border-radius: 25px; border: 4px solid #000;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.9), 0 0 15px var(--brawl-yellow);
+            cursor: grab; pointer-events: auto !important; touch-action: none !important;
+            font-size: 0.9rem; text-align: center; white-space: nowrap; z-index: 50;
+            animation: pulseTab 1s infinite alternate;
+        }
+        #dragPullTab:active { cursor: grabbing; }
+
+        @keyframes pulseTab {
+            0% { transform: translateX(-50%) scale(1); }
+            100% { transform: translateX(-50%) scale(1.08); }
+        }
+
         .stat-label { font-family: 'Luckiest Guy', cursive; font-size: 0.9rem; -webkit-text-stroke: 1px #000; }
         #cleaningCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 10px; touch-action: none; z-index: 10; }
         
@@ -75,7 +134,6 @@
         .progress-fill-energy { background: linear-gradient(to right, #ffaa00, #ffea00); height: 100%; transition: width 0.3s; }
         .progress-fill-clean { background: linear-gradient(to right, #00bbff, #00ffff); height: 100%; transition: width 0.3s; }
 
-        /* BANDEAU STYLE BRAWL STARS */
         #brawlTurnBanner {
             position: fixed; top: 35%; left: 0; width: 100%; background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 25%, rgba(0,0,0,0.85) 75%, rgba(0,0,0,0) 100%);
             border-top: 6px solid var(--brawl-yellow); border-bottom: 6px solid var(--brawl-yellow); padding: 15px 0; text-align: center; z-index: 99999;
@@ -84,41 +142,35 @@
         #brawlTurnBanner.show-banner { transform: skewX(-10deg) scaleY(1); opacity: 1; }
         #brawlBannerText { font-size: 2.5rem; color: #fff; font-weight: 900; letter-spacing: 2px; }
 
-        /* Éponge suiveuse */
         #toolEponge {
             position: fixed; width: 64px; height: 64px; font-size: 3.5rem; pointer-events: none;
             z-index: 9999; transform: translate(-50%, -50%); display: none; line-height: 1;
         }
 
-        /* Inventaire */
         .food-item {
             background: #170233; border: 3px solid #000; border-radius: 15px; padding: 10px;
             cursor: grab; transition: transform 0.1s; touch-action: none; position: relative;
         }
         .food-emoji { font-size: 2.5rem; display: block; }
         
-        /* OVERLAY GÉANT REPAS POMME REBONDISSANTE */
         .interactive-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(5, 0, 15, 0.95); z-index: 5000;
-            overflow: hidden;
+            background: rgba(5, 0, 15, 0.92); z-index: 5000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .big-apple {
-            font-size: 5.5rem; cursor: pointer; 
-            user-select: none; filter: drop-shadow(0px 8px 0px #000);
-            position: absolute; width: 90px; height: 90px;
+        .big-apple-container {
+            cursor: pointer; user-select: none;
             display: flex; align-items: center; justify-content: center;
-            touch-action: none; line-height: 1;
+            touch-action: none;
+            transition: transform 0.1s ease;
         }
-        .big-apple:active { transform: scale(0.85); }
+        .big-apple-container:active { transform: scale(0.92); }
 
-        /* FX */
         .fx-bite-particle { position: fixed; font-size: 1.5rem; pointer-events: none; z-index: 99999; animation: particleFly 0.5s ease-out forwards; }
         @keyframes particleFly {
             0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
             100% { transform: translate(var(--twx), var(--twy)) scale(0); opacity: 0; }
         }
-        .shake-effect { animation: shake 0.3s ease-in-out; }
     </style>
 </head>
 <body>
@@ -156,8 +208,25 @@
                     <div class="row align-items-center justify-content-center">
                         <div class="col-sm-6 mb-3">
                             <div class="pokemon-card-wrapper" id="canvasContainer" style="cursor: default;">
-                                <img id="activeCardImg" src="https://placehold.co/280x390/151824/8b5cf6?text=Choisis+une+carte" class="pokemon-card-img">
+                                <img id="activeCardImg" src="https://placehold.co/280x390/151824/8b5cf6?text=Choisis+une+carte" class="pokemon-card-img" style="opacity: 0;">
                                 <canvas id="cleaningCanvas" class="d-none"></canvas>
+                                
+                                <div id="cardFoldOverlay" class="card-fold-overlay d-none">
+                                    <div class="fold-bottom-half">
+                                        <img id="foldBottomImg" src="" class="pokemon-card-img">
+                                        <div id="bottomShadow" class="fold-shadow"></div>
+                                    </div>
+                                    <div class="fold-top-half" id="foldTopHalf">
+                                        <div class="fold-face fold-face-front">
+                                            <img id="foldTopImg" src="" class="pokemon-card-img">
+                                            <div id="topShadow" class="fold-shadow"></div>
+                                        </div>
+                                        <div class="fold-face fold-face-back">
+                                            <div style="font-family:'Luckiest Guy'; font-size:1.1rem; color:var(--brawl-yellow); text-shadow:2px 2px #000;">CARTE PLIÉE 📄</div>
+                                        </div>
+                                    </div>
+                                    <div id="dragPullTab">⬆️ GLISSE POUR DÉPLIER ⬆️</div>
+                                </div>
                             </div>
                         </div>
 
@@ -183,6 +252,7 @@
                             <div class="progress-bar-custom"><div id="fillClean" class="progress-fill-clean"></div></div>
                         </div>
 
+                        <button id="btnUnfoldAction" onclick="lancerPliageInteractif3D()" class="btn brawl-btn btn-yellow w-100 py-2 mb-2 d-none">ÉTAPE 1 : DÉPLIER LA CARTE 📄</button>
                         <button id="btnCleanAction" onclick="lancerEtapeNettoyage('savon')" class="btn brawl-btn btn-blue w-100 py-2">LANCER LE SAVONNAGE 🧽</button>
                         <div id="cleaningPrompt" class="text-info small fw-bold mt-2 d-none">Frotte la carte partout pour savonner !</div>
                     </div>
@@ -191,24 +261,49 @@
         </div>
     </div>
 
+    <!-- OVERLAY POMME CENTRÉE AVEC BOUCHÉES VISUELLES -->
     <div id="appleEatingOverlay" class="interactive-overlay d-none">
-        <div class="w-100 text-center position-absolute top-0 py-3" style="z-index: 5010; pointer-events: none;">
-            <h1 class="brawl-font text-warning mb-1" style="font-size: 2.2rem;">ATTAPE LA POMME !</h1>
-            <h3 class="brawl-font text-white" id="txtBitesLeft" style="font-size: 1.3rem;">COUPS RESTANTS : ?</h3>
+        <h1 class="brawl-font text-warning mb-2" style="font-size: 2.2rem;">CROQUE LA POMME !</h1>
+        <h3 class="brawl-font text-white mb-4" id="txtBitesLeft" style="font-size: 1.3rem;">BOUCHÉES RESTANTES : ?</h3>
+        
+        <div class="big-apple-container" id="clickableApple" onmousedown="tapotePomme(event)" ontouchstart="tapotePomme(event)">
+            <svg viewBox="0 0 100 100" style="width: 170px; height: 170px; filter: drop-shadow(0 12px 20px rgba(0,0,0,0.8));">
+                <defs>
+                    <mask id="appleMask">
+                        <rect x="0" y="0" width="100" height="100" fill="white" />
+                        <circle id="bite0" cx="16" cy="48" r="0" fill="black" />
+                        <circle id="bite1" cx="84" cy="52" r="0" fill="black" />
+                        <circle id="bite2" cx="50" cy="86" r="0" fill="black" />
+                        <circle id="bite3" cx="78" cy="24" r="0" fill="black" />
+                        <circle id="bite4" cx="24" cy="72" r="0" fill="black" />
+                        <circle id="bite5" cx="74" cy="72" r="0" fill="black" />
+                        <circle id="bite6" cx="26" cy="26" r="0" fill="black" />
+                        <circle id="bite7" cx="50" cy="45" r="0" fill="black" />
+                    </mask>
+                </defs>
+                <path d="M50,20 Q64,6 72,13 Q60,22 50,20 Z" fill="#27ae60" />
+                <path d="M50,22 Q53,13 50,8" stroke="#795548" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+                <path d="M50,22 C35,12 12,32 15,58 C18,82 38,94 50,94 C62,94 82,82 85,58 C88,32 65,12 50,22 Z" fill="#ff3b30" mask="url(#appleMask)" />
+                <path d="M32,36 Q26,46 33,56" stroke="rgba(255,255,255,0.45)" stroke-width="4.5" fill="none" stroke-linecap="round" mask="url(#appleMask)"/>
+            </svg>
         </div>
-        <div id="clickableApple" class="big-apple" onmousedown="tapotePomme(event)" ontouchstart="tapotePomme(event)">🍏</div>
     </div>
 
     <script>
         const API_URL = "https://script.google.com/macros/s/AKfycbzKgKRkfVyQuNCrc0T13iH1orPFeWIZAK4kB_emnRFimN-ae_HzISIqUzZ_g1aWgPwHjg/exec";
         let currentUser = null, myCollection = [], selectedCard = null, selectedCardIndex = null;
         let canvas, ctx, isDrawing = false, nettoyageMode = 'savon';
-        let hitsRequired = 0, currentBites = 0, lastParticleTime = 0;
+        let hitsRequired = 3, currentBites = 0, lastParticleTime = 0;
+
+        let estDepliee = false;
+        let pullTabDraggableInstance = null;
 
         let applePhysics = { x: 0, y: 0, vx: 0, vy: 0, size: 90 };
         let physicsInterval = null;
 
         window.addEventListener('DOMContentLoaded', () => {
+            gsap.registerPlugin(Draggable);
+            
             fetch(`${API_URL}?action=getMembres`).then(res => res.json()).then(membres => {
                 const s = document.getElementById('userSelect'); s.innerHTML = '<option value="">-- Qui es-tu ? --</option>';
                 membres.filter(m => m.Nom !== 'Admin').forEach(m => s.innerHTML += `<option value="${m.Nom}">${m.Nom}</option>`);
@@ -258,12 +353,108 @@
             selectedCardIndex = idx;
             selectedCard = myCollection[idx];
             
+            let imgUrl = selectedCard.Image_URL || selectedCard.Image;
             document.getElementById('activeCardName').innerText = selectedCard.Nom_Pokemon.toUpperCase();
-            document.getElementById('activeCardImg').src = selectedCard.Image_URL || selectedCard.Image;
+            
+            let mainImg = document.getElementById('activeCardImg');
+            mainImg.src = imgUrl;
+
+            document.getElementById('foldBottomImg').src = imgUrl;
+            document.getElementById('foldTopImg').src = imgUrl;
+
             document.getElementById('statsBlock').classList.remove('d-none');
             document.getElementById('foodInventoryBlock').classList.remove('d-none');
+            
             desactiverCanvas();
+            cacherOverlayPliage();
+
+            let isMalEnPoint = (parseInt(selectedCard.Energie)||0) < 60 || (parseInt(selectedCard.Proprete)||0) < 60;
+            estDepliee = !isMalEnPoint;
+
+            if (!estDepliee) {
+                mainImg.style.opacity = '0';
+                document.getElementById('cardFoldOverlay').classList.remove('d-none');
+                document.getElementById('btnUnfoldAction').classList.remove('d-none');
+                document.getElementById('btnCleanAction').classList.add('d-none');
+            } else {
+                mainImg.style.opacity = '1';
+                document.getElementById('cardFoldOverlay').classList.add('d-none');
+                document.getElementById('btnUnfoldAction').classList.add('d-none');
+                document.getElementById('btnCleanAction').classList.remove('d-none');
+            }
+
             refreshStatsVisuals();
+        }
+
+        function lancerPliageInteractif3D() {
+            triggerBrawlNotification("TIRE LA POIGNÉE VERS LE HAUT !", "text-warning");
+            
+            const overlay = document.getElementById('cardFoldOverlay');
+            overlay.classList.remove('d-none');
+
+            const topHalf = document.getElementById('foldTopHalf');
+            const topShadow = document.getElementById('topShadow');
+            const bottomShadow = document.getElementById('bottomShadow');
+            const pullTab = document.getElementById('dragPullTab');
+            const mainImg = document.getElementById('activeCardImg');
+
+            mainImg.style.opacity = '0';
+
+            gsap.set(topHalf, { rotateX: -160 });
+            gsap.set(topShadow, { opacity: 0.7 });
+            gsap.set(bottomShadow, { opacity: 0.6 });
+            gsap.set(pullTab, { y: 0, opacity: 1 });
+
+            if (pullTabDraggableInstance) pullTabDraggableInstance[0].kill();
+
+            const cardWrapper = document.getElementById('canvasContainer');
+            const maxDragDistance = -(cardWrapper.offsetHeight * 0.45);
+
+            pullTabDraggableInstance = Draggable.create(pullTab, {
+                type: "y",
+                edgeResistance: 0.6,
+                bounds: { minY: maxDragDistance, maxY: 0 },
+                onDrag: function() {
+                    let progress = Math.min(1, Math.max(0, this.y / maxDragDistance));
+                    let currentAngle = -160 * (1 - progress);
+                    gsap.set(topHalf, { rotateX: currentAngle });
+
+                    let shadowValue = Math.sin(progress * Math.PI) * 0.65;
+                    gsap.set(topShadow, { opacity: shadowValue });
+                    gsap.set(bottomShadow, { opacity: (1 - progress) * 0.6 });
+                },
+                onRelease: function() {
+                    let progress = Math.min(1, Math.max(0, this.y / maxDragDistance));
+
+                    if (progress >= 0.65) {
+                        gsap.to(topHalf, { rotateX: 0, duration: 0.35, ease: "power2.out" });
+                        gsap.to(topShadow, { opacity: 0, duration: 0.35 });
+                        gsap.to(bottomShadow, { opacity: 0, duration: 0.35 });
+                        gsap.to(pullTab, { opacity: 0, duration: 0.2, onComplete: () => {
+                            cacherOverlayPliage();
+                            mainImg.style.opacity = '1';
+                            estDepliee = true;
+                            triggerBrawlNotification("CARTE PARFAITEMENT DÉPLIÉE !", "text-success");
+                            genererParticulesOptimisees(window.innerWidth / 2, window.innerHeight / 2, ['✨', '📄', '🟢']);
+                            document.getElementById('btnUnfoldAction').classList.add('d-none');
+                            document.getElementById('btnCleanAction').classList.remove('d-none');
+                        }});
+                    } else {
+                        gsap.to(this.target, { y: 0, duration: 0.45, ease: "bounce.out" });
+                        gsap.to(topHalf, { rotateX: -160, duration: 0.45, ease: "bounce.out" });
+                        gsap.to(topShadow, { opacity: 0.7, duration: 0.45 });
+                        gsap.to(bottomShadow, { opacity: 0.6, duration: 0.45 });
+                    }
+                }
+            });
+        }
+
+        function cacherOverlayPliage() {
+            document.getElementById('cardFoldOverlay').classList.add('d-none');
+            if (pullTabDraggableInstance) { 
+                pullTabDraggableInstance[0].kill(); 
+                pullTabDraggableInstance = null; 
+            }
         }
 
         function refreshStatsVisuals() {
@@ -279,10 +470,21 @@
 
         function setupDragAndDropHTML5() {
             const targetZone = document.getElementById('canvasContainer');
-            targetZone.addEventListener('dragover', (e) => { e.preventDefault(); if(selectedCard) targetZone.classList.add('drag-over'); });
+            
+            targetZone.addEventListener('dragover', (e) => { 
+                e.preventDefault(); 
+                // Autorise le drop uniquement si la carte est dépliée
+                if(selectedCard && estDepliee) targetZone.classList.add('drag-over'); 
+            });
             targetZone.addEventListener('dragleave', () => targetZone.classList.remove('drag-over'));
             targetZone.addEventListener('drop', (e) => {
-                e.preventDefault(); targetZone.classList.remove('drag-over');
+                e.preventDefault(); 
+                targetZone.classList.remove('drag-over');
+                // Empêche de nourrir la carte si elle est encore pliée
+                if (!estDepliee) {
+                    triggerBrawlNotification("DÉPLIE D'ABORD LA CARTE !", "text-danger");
+                    return;
+                }
                 if(selectedCard && e.dataTransfer.getData("text") === "appleFood") ouvrirGigaPommeOverlay();
             });
 
@@ -295,8 +497,14 @@
             touchFood.addEventListener('touchend', () => {
                 touchFood.style.position = 'static'; touchFood.style.zIndex = 'auto';
                 if(!selectedCard) return;
+                
+                if (!estDepliee) {
+                    triggerBrawlNotification("DÉPLIE D'ABORD LA CARTE !", "text-danger");
+                    return;
+                }
+
                 let r = targetZone.getBoundingClientRect();
-                if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) ouvrirGigaPommeOverlay(); // FIX COMPLET DE L'APPEL ICI
+                if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) ouvrirGigaPommeOverlay();
             });
         }
 
@@ -305,71 +513,63 @@
                 triggerBrawlNotification("ÉNERGIE MAX DEJA ATTEINTE !", "text-warning");
                 return;
             }
+            
             hitsRequired = Math.floor(Math.random() * 6) + 3;
             currentBites = 0;
             
-            const appleEl = document.getElementById('clickableApple');
-            appleEl.innerText = "🍏";
-            document.getElementById('txtBitesLeft').innerText = `COUPS RESTANTS : ${hitsRequired}`;
+            for (let i = 0; i < 8; i++) {
+                let biteCircle = document.getElementById('bite' + i);
+                if (biteCircle) biteCircle.setAttribute('r', '0');
+            }
+
+            document.getElementById('txtBitesLeft').innerText = `BOUCHÉES RESTANTES : ${hitsRequired}`;
             document.getElementById('appleEatingOverlay').classList.remove('d-none');
-
-            applePhysics.x = (window.innerWidth / 2) - (applePhysics.size / 2);
-            applePhysics.y = (window.innerHeight / 2) - (applePhysics.size / 2);
-            applePhysics.vx = 0; applePhysics.vy = 0;
-            appleEl.style.left = applePhysics.x + 'px'; appleEl.style.top = applePhysics.y + 'px';
-
-            if(physicsInterval) clearInterval(physicsInterval);
-            physicsInterval = setInterval(moteurPhysiquePomme, 16);
-        }
-
-        function moteurPhysiquePomme() {
-            applePhysics.x += applePhysics.vx; applePhysics.y += applePhysics.vy;
-            applePhysics.vx *= 0.985; applePhysics.vy *= 0.985;
-
-            if (applePhysics.x <= 0) { applePhysics.x = 0; applePhysics.vx = -applePhysics.vx; } 
-            else if (applePhysics.x >= window.innerWidth - applePhysics.size) { applePhysics.x = window.innerWidth - applePhysics.size; applePhysics.vx = -applePhysics.vx; }
-
-            if (applePhysics.y <= 60) { applePhysics.y = 60; applePhysics.vy = -applePhysics.vy; } 
-            else if (applePhysics.y >= window.innerHeight - applePhysics.size) { applePhysics.y = window.innerHeight - applePhysics.size; applePhysics.vy = -applePhysics.vy; }
-
-            const appleEl = document.getElementById('clickableApple');
-            appleEl.style.left = applePhysics.x + 'px'; appleEl.style.top = applePhysics.y + 'px';
         }
 
         function tapotePomme(e) {
-            e.preventDefault(); currentBites++;
+            e.preventDefault();
+            if (currentBites >= hitsRequired) return;
+
+            currentBites++;
             let restants = hitsRequired - currentBites;
-            document.getElementById('txtBitesLeft').innerText = `COUPS RESTANTS : ${restants}`;
+            document.getElementById('txtBitesLeft').innerText = `BOUCHÉES RESTANTES : ${restants}`;
 
-            let angleAleatoire = Math.random() * Math.PI * 2;
-            let forceImpulsion = Math.floor(Math.random() * 8) + 14;
-            applePhysics.vx = Math.cos(angleAleatoire) * forceImpulsion;
-            applePhysics.vy = Math.sin(angleAleatoire) * forceImpulsion;
+            let biteIndex = currentBites - 1;
+            if (biteIndex < 8) {
+                let biteCircle = document.getElementById('bite' + biteIndex);
+                if (biteCircle) {
+                    gsap.to(biteCircle, { attr: { r: 16 }, duration: 0.3, ease: "back.out(1.7)" });
+                }
+            }
 
-            let clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : applePhysics.x + 45);
-            let clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : applePhysics.y + 45);
-            genererParticulesOptimisees(clientX, clientY, ['🟢', '✨', '🟨', '🍏']);
+            const appleContainer = document.getElementById('clickableApple');
+            gsap.fromTo(appleContainer, { scale: 1.18 }, { scale: 1, duration: 0.25, ease: "back.out(2)" });
 
-            const appleEl = document.getElementById('clickableApple');
-            if(restants <= 0) {
-                clearInterval(physicsInterval);
-                document.getElementById('appleEatingOverlay').classList.add('d-none');
-                triggerBrawlNotification("MIAM ! ENERGIE RESTAURÉE !", "text-success");
-                
-                fetch(`${API_URL}?action=nourrirCarteLocal&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
-                .then(res => res.json()).then(res => {
-                    if(res.success) { 
-                        selectedCard.Energie = Math.min(100, (parseInt(selectedCard.Energie)||0) + 50); // BUFF ICI : +50 À L'ÉNERGIE
+            let clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : window.innerWidth / 2);
+            let clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : window.innerHeight / 2);
+            genererParticulesOptimisees(clientX, clientY, ['🟢', '✨', '🍏', '🍎']);
+
+            if (currentBites >= hitsRequired) {
+                setTimeout(() => {
+                    document.getElementById('appleEatingOverlay').classList.add('d-none');
+                    triggerBrawlNotification("MIAM ! ÉNERGIE RESTAURÉE À 100% !", "text-success");
+                    
+                    fetch(`${API_URL}?action=nourrirCarteLocal&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
+                    .then(res => res.json()).then(res => {
+                        selectedCard.Energie = 100;
                         refreshStatsVisuals(); 
                         chargerCollectionSoin(); 
-                    }
-                    else { triggerBrawlNotification("PAS ASSEZ D'ARGENT !", "text-danger"); }
-                });
-            } else if (restants <= 2) { appleEl.innerText = "🍎"; } 
-            else if (restants <= 4) { appleEl.innerText = "🍐"; }
+                    });
+                }, 400);
+            }
         }
 
         function lancerEtapeNettoyage(etape) {
+            if (!estDepliee) {
+                triggerBrawlNotification("DÉPLIE D'ABORD LA CARTE !", "text-danger");
+                return;
+            }
+
             nettoyageMode = etape;
             canvas = document.getElementById('cleaningCanvas');
             canvas.classList.remove('d-none');
@@ -378,7 +578,7 @@
             ctx = canvas.getContext('2d');
             
             if(nettoyageMode === 'savon') {
-                triggerBrawlNotification("ÉTAPE 1 : METTRE LE SAVON !", "text-info");
+                triggerBrawlNotification("METS LE SAVON PARTOUT !", "text-info");
                 
                 ctx.fillStyle = "#4a3525";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -387,7 +587,7 @@
                     ctx.beginPath(); ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, Math.random()*25+5, 0, Math.PI*2); ctx.fill();
                 }
             } else {
-                triggerBrawlNotification("ÉTAPE 2 : RINCE À L'EAU !", "text-primary");
+                triggerBrawlNotification("RINCE À L'EAU !", "text-primary");
                 
                 ctx.fillStyle = "#e0f0ff";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -419,12 +619,7 @@
         }
 
         function startCleaning(e) { isDrawing = true; cleanMove(e); afficherOutil(true); }
-        
-        // ZÉRO LAG : La progression lourde s'exécute uniquement lorsque l'enfant relève son doigt !
-        function stopCleaning() { 
-            isDrawing = false; 
-            verifierProgressionLavage(); 
-        }
+        function stopCleaning() { isDrawing = false; verifierProgressionLavage(); }
 
         function cleanMove(e) {
             let ep = document.getElementById('toolEponge');
@@ -443,7 +638,7 @@
                 ctx.fillStyle = gradB; ctx.beginPath(); ctx.arc(x, y, br, 0, Math.PI * 2); ctx.fill();
             } else {
                 ctx.globalCompositeOperation = 'destination-out';
-                ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill(); // Effacement ultra rapide
+                ctx.beginPath(); ctx.arc(x, y, 44, 0, Math.PI * 2); ctx.fill();
                 
                 let now = performance.now();
                 if (now - lastParticleTime > 45) { 
