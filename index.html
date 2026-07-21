@@ -298,9 +298,6 @@
         let estDepliee = false;
         let pullTabDraggableInstance = null;
 
-        let applePhysics = { x: 0, y: 0, vx: 0, vy: 0, size: 90 };
-        let physicsInterval = null;
-
         window.addEventListener('DOMContentLoaded', () => {
             gsap.registerPlugin(Draggable);
             
@@ -473,14 +470,12 @@
             
             targetZone.addEventListener('dragover', (e) => { 
                 e.preventDefault(); 
-                // Autorise le drop uniquement si la carte est dépliée
                 if(selectedCard && estDepliee) targetZone.classList.add('drag-over'); 
             });
             targetZone.addEventListener('dragleave', () => targetZone.classList.remove('drag-over'));
             targetZone.addEventListener('drop', (e) => {
                 e.preventDefault(); 
                 targetZone.classList.remove('drag-over');
-                // Empêche de nourrir la carte si elle est encore pliée
                 if (!estDepliee) {
                     triggerBrawlNotification("DÉPLIE D'ABORD LA CARTE !", "text-danger");
                     return;
@@ -508,6 +503,7 @@
             });
         }
 
+        /* GESTION DE LA POMME ET MISE À JOUR DU SHEET */
         function ouvrirGigaPommeOverlay() {
             if(parseInt(selectedCard.Energie) >= 100) {
                 triggerBrawlNotification("ÉNERGIE MAX DEJA ATTEINTE !", "text-warning");
@@ -554,6 +550,7 @@
                     document.getElementById('appleEatingOverlay').classList.add('d-none');
                     triggerBrawlNotification("MIAM ! ÉNERGIE RESTAURÉE À 100% !", "text-success");
                     
+                    // MISE À JOUR DANS LE GOOGLE SHEET VIA L'API APPS SCRIPT
                     fetch(`${API_URL}?action=nourrirCarteLocal&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
                     .then(res => res.json()).then(res => {
                         selectedCard.Energie = 100;
@@ -648,7 +645,7 @@
             }
         }
 
-        function verifierProgressionLavage() {
+function verifierProgressionLavage() {
             let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             let countMousse = 0, countVide = 0, totalEchantillons = 0;
 
@@ -665,15 +662,19 @@
             else if (nettoyageMode === 'rincage' && (countVide / totalEchantillons) > 0.82) {
                 desactiverCanvas();
                 selectedCard.Proprete = 100;
+                selectedCard.Energie = 100; // Remet aussi l'énergie à 100% visuellement
                 refreshStatsVisuals();
                 
-                fetch(`${API_URL}?action=nettoyerCarteLocal&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`);
-                triggerBrawlNotification("CARTE SPLENDIDE ET PROPRE !", "text-warning");
-                genererParticulesOptimisees(window.innerWidth / 2, window.innerHeight / 2, ['✨', '⭐', '🎉']);
-                chargerCollectionSoin(); 
+                // APPEL UNIQUE AU SHEET POUR METTRE LES DEUX STATS À 100%
+                fetch(`${API_URL}?action=soignerCarteComplete&username=${encodeURIComponent(currentUser)}&cardId=${encodeURIComponent(selectedCard.Pokemon_API_ID)}`)
+                .then(res => res.json())
+                .then(() => {
+                    triggerBrawlNotification("CARTE SOIGNÉE ET SPLENDIDE !", "text-warning");
+                    genererParticulesOptimisees(window.innerWidth / 2, window.innerHeight / 2, ['✨', '⭐', '🎉']);
+                    chargerCollectionSoin(); 
+                });
             }
         }
-
         function desactiverCanvas() {
             canvas = document.getElementById('cleaningCanvas');
             canvas.classList.add('d-none');
